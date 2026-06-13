@@ -75,8 +75,12 @@ jobs:
             STEP 5 — PORTFOLIO REVIEW
             - Call get_portfolio and get_equity_positions
             - Check all open positions: current P&L, thesis still intact?
-            - Flag any position that has hit its target or broken its thesis (recommend sell)
-            - Confirm $20 buying power available for today's trade
+            - For each open position, ask: "Is there a better use of this capital today?"
+            - SELL any position where: thesis is broken, target is hit, OR today's best candidate
+              offers materially better risk/reward than holding
+            - Capital freed from sells is added to today's budget — deploy it into the best candidate
+            - Do not hold losers out of attachment. Do not hold winners past their catalyst
+            - Confirm total available buying power (cash + any sell proceeds) before placing today's trade
 
             ═══════════════════════════════════════
             DAILY OUTPUT FORMAT (mandatory, every day)
