@@ -2,37 +2,13 @@ name: Daily Trade Analysis – 10 AM ET
 
 on:
   schedule:
-    - cron: '50 13 * * 1-5'  # 9:50 AM ET (Mon–Fri) — 10-min warning
-    - cron: '0 14 * * 1-5'   # 10:00 AM ET (Mon–Fri) — execute analysis
+    - cron: '0 14 * * 1-5'  # 10:00 AM ET (Mon–Fri)
   workflow_dispatch:
-    inputs:
-      mode:
-        description: 'Run mode'
-        required: false
-        default: 'trade'
-        type: choice
-        options:
-          - trade
-          - warning
 
 jobs:
-  notify-warning:
-    name: 10-Minute Warning
-    runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'schedule' && contains(github.event.schedule, '50 13')) ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'warning')
-    steps:
-      - name: Send 10-min warning
-        run: |
-          echo "::notice title=Trade Alert::Daily market analysis starts in 10 minutes (10:00 AM ET). Stand by."
-
   run-trade:
     name: Daily Market Analysis & Trade
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'schedule' && contains(github.event.schedule, '0 14')) ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'trade')
     steps:
       - uses: actions/checkout@v4
 
@@ -40,7 +16,6 @@ jobs:
         uses: anthropic/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          model: claude-sonnet-4-6
           mcp_config: |
             {
               "mcpServers": {
