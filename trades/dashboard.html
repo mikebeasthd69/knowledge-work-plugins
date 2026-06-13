@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Daily Trade Log</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d0d0d; color: #e0e0e0; padding: 24px; }
@@ -52,6 +53,10 @@
 
     .conviction { display: inline-block; background: #1e1e1e; border-radius: 4px; padding: 1px 6px; font-size: 0.75rem; }
 
+    .charts-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; }
+    .chart-card { flex: 1; min-width: 300px; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 16px 20px; }
+    .chart-title { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+
     #last-updated { font-size: 0.72rem; color: #444; margin-top: 20px; }
   </style>
 </head>
@@ -60,6 +65,17 @@
   <p class="subtitle">$20/day · Aggressive growth · Auto-updated by workflow</p>
 
   <div class="summary-bar" id="summary"></div>
+
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-title">Cumulative P&amp;L ($)</div>
+      <canvas id="cumulativeChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Daily P&amp;L ($)</div>
+      <canvas id="dailyChart"></canvas>
+    </div>
+  </div>
 
   <div class="table-wrap">
     <table id="trade-table">
@@ -166,6 +182,53 @@
             <td><span class="badge ${status}">${col(r,'Status')}</span></td>
             <td class="why-cell">${col(r,'Notes')}</td>
           </tr>`;
+      });
+
+      // Build chart data from closed + open rows with P&L
+      const chartRows = rows.filter(r => col(r,'P&L $') !== '');
+      const labels = chartRows.map(r => col(r,'Date'));
+      const dailyPnl = chartRows.map(r => parseFloat(col(r,'P&L $')) || 0);
+      const cumulative = dailyPnl.reduce((acc, v, i) => {
+        acc.push((acc[i-1] || 0) + v); return acc;
+      }, []);
+
+      const chartDefaults = {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: '#1e1e1e' } },
+          y: { ticks: { color: '#666', font: { size: 10 }, callback: v => '$'+v.toFixed(2) }, grid: { color: '#1e1e1e' } }
+        }
+      };
+
+      new Chart(document.getElementById('cumulativeChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            data: cumulative,
+            borderColor: '#22c55e',
+            backgroundColor: 'rgba(34,197,94,0.08)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4,
+            pointBackgroundColor: cumulative.map(v => v >= 0 ? '#22c55e' : '#ef4444')
+          }]
+        },
+        options: { ...chartDefaults }
+      });
+
+      new Chart(document.getElementById('dailyChart'), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            data: dailyPnl,
+            backgroundColor: dailyPnl.map(v => v >= 0 ? 'rgba(34,197,94,0.7)' : 'rgba(239,68,68,0.7)'),
+            borderRadius: 4
+          }]
+        },
+        options: { ...chartDefaults }
       });
 
       document.getElementById('last-updated').textContent = 'Last updated: ' + new Date().toLocaleString();
