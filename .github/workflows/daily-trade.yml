@@ -1,0 +1,74 @@
+name: Daily Trade Analysis – 10 AM ET
+
+on:
+  schedule:
+    - cron: '50 13 * * 1-5'  # 9:50 AM ET (Mon–Fri) — 10-min warning
+    - cron: '0 14 * * 1-5'   # 10:00 AM ET (Mon–Fri) — execute analysis
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Run mode'
+        required: false
+        default: 'trade'
+        type: choice
+        options:
+          - trade
+          - warning
+
+jobs:
+  notify-warning:
+    name: 10-Minute Warning
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'schedule' && contains(github.event.schedule, '50 13')) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'warning')
+    steps:
+      - name: Send 10-min warning
+        run: |
+          echo "::notice title=Trade Alert::Daily market analysis starts in 10 minutes (10:00 AM ET). Stand by."
+
+  run-trade:
+    name: Daily Market Analysis & Trade
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'schedule' && contains(github.event.schedule, '0 14')) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'trade')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run daily trade analysis
+        uses: anthropic/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: claude-sonnet-4-6
+          mcp_config: |
+            {
+              "mcpServers": {
+                "robinhood-trading": {
+                  "type": "http",
+                  "url": "https://agent.robinhood.com/mcp/trading",
+                  "headers": {
+                    "Authorization": "Bearer ${{ secrets.ROBINHOOD_MCP_TOKEN }}"
+                  }
+                }
+              }
+            }
+          prompt: |
+            You are an aggressive portfolio manager running a daily $20 investment challenge.
+            Account number for the Agentic account: 671214013.
+            Budget: $20/day. Profile: aggressive high growth, maximum portfolio growth, not capital preservation.
+
+            Execute the following steps without asking for confirmation — do not ask what to do, you are the decision maker:
+
+            1. Check current US market conditions and pre-market activity
+            2. Check overnight moves in global markets (Asia, Europe)
+            3. Identify the dominant macro theme of the day
+            4. Scan for breaking geopolitical developments that could move markets
+            5. Identify sector-specific catalysts (earnings, FDA, regulatory, etc.)
+            6. Flag anything creating a short-term asymmetric opportunity
+            7. Look for emerging narratives not yet priced in
+            8. Check current portfolio positions and buying power via get_portfolio and get_equity_positions
+            9. Make ONE high-conviction trade: call review_equity_order then place_equity_order
+            10. Summarize the trade rationale in 3 bullet points
+
+            Today's date context: use web search to confirm current market state before trading.
