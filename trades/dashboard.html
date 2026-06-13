@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daily Trade Log</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d0d0d; color: #e0e0e0; padding: 24px; }
+    h1 { font-size: 1.4rem; font-weight: 600; margin-bottom: 4px; color: #fff; }
+    .subtitle { font-size: 0.85rem; color: #666; margin-bottom: 24px; }
+
+    .summary-bar {
+      display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 28px;
+    }
+    .card {
+      background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px;
+      padding: 14px 20px; min-width: 140px;
+    }
+    .card .label { font-size: 0.72rem; color: #666; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .card .value { font-size: 1.3rem; font-weight: 700; }
+    .card .value.pos { color: #22c55e; }
+    .card .value.neg { color: #ef4444; }
+    .card .value.neutral { color: #e0e0e0; }
+
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    thead th {
+      background: #1a1a1a; color: #888; font-weight: 500; text-transform: uppercase;
+      font-size: 0.7rem; letter-spacing: 0.05em; padding: 10px 12px; text-align: left;
+      border-bottom: 1px solid #2a2a2a; white-space: nowrap;
+    }
+    tbody tr { border-bottom: 1px solid #1e1e1e; transition: background 0.1s; }
+    tbody tr:hover { background: #161616; }
+    tbody td { padding: 10px 12px; vertical-align: top; }
+
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+    }
+    .badge.buy { background: #1a3a2a; color: #22c55e; }
+    .badge.sell { background: #3a1a1a; color: #ef4444; }
+    .badge.open { background: #1a2a3a; color: #60a5fa; }
+    .badge.closed { background: #2a2a2a; color: #888; }
+
+    .pos { color: #22c55e; font-weight: 600; }
+    .neg { color: #ef4444; font-weight: 600; }
+    .muted { color: #555; font-style: italic; }
+
+    .thesis-cell { max-width: 240px; line-height: 1.4; }
+    .why-cell { max-width: 200px; line-height: 1.4; color: #aaa; }
+
+    .conviction { display: inline-block; background: #1e1e1e; border-radius: 4px; padding: 1px 6px; font-size: 0.75rem; }
+
+    #last-updated { font-size: 0.72rem; color: #444; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Daily Trade Log</h1>
+  <p class="subtitle">$20/day · Aggressive growth · Auto-updated by workflow</p>
+
+  <div class="summary-bar" id="summary"></div>
+
+  <div class="table-wrap">
+    <table id="trade-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Symbol</th>
+          <th>Action</th>
+          <th>Shares</th>
+          <th>Entry</th>
+          <th>Exit</th>
+          <th>$ In</th>
+          <th>Current Value</th>
+          <th>P&amp;L $</th>
+          <th>P&amp;L %</th>
+          <th>Catalyst</th>
+          <th>Cat. Date</th>
+          <th>Conv.</th>
+          <th>Why This Pick</th>
+          <th>Why Not Alt.</th>
+          <th>Status</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <p id="last-updated"></p>
+
+  <script>
+    async function load() {
+      const res = await fetch('trade-log.csv?' + Date.now());
+      const text = await res.text();
+      const lines = text.trim().split('\n');
+      const headers = lines[0].split(',');
+      const rows = lines.slice(1).map(line => {
+        const vals = [];
+        let cur = '', inQ = false;
+        for (const ch of line) {
+          if (ch === '"') { inQ = !inQ; }
+          else if (ch === ',' && !inQ) { vals.push(cur.trim()); cur = ''; }
+          else { cur += ch; }
+        }
+        vals.push(cur.trim());
+        return vals;
+      });
+
+      const idx = k => headers.indexOf(k);
+      const col = (row, k) => row[idx(k)] || '';
+
+      // Summary stats
+      let totalIn = 0, totalPnl = 0, wins = 0, losses = 0;
+      rows.forEach(r => {
+        const pnl = parseFloat(col(r, 'P&L $')) || 0;
+        const din = parseFloat(col(r, 'Dollar In')) || 0;
+        totalIn += din;
+        totalPnl += pnl;
+        if (pnl > 0) wins++;
+        if (pnl < 0) losses++;
+      });
+      const totalPct = totalIn > 0 ? ((totalPnl / totalIn) * 100).toFixed(2) : '—';
+
+      document.getElementById('summary').innerHTML = `
+        <div class="card"><div class="label">Total Deployed</div><div class="value neutral">$${totalIn.toFixed(2)}</div></div>
+        <div class="card"><div class="label">Total P&amp;L $</div><div class="value ${totalPnl >= 0 ? 'pos' : 'neg'}">${totalPnl >= 0 ? '+' : ''}$${totalPnl.toFixed(2)}</div></div>
+        <div class="card"><div class="label">Total Return</div><div class="value ${totalPnl >= 0 ? 'pos' : 'neg'}">${totalPnl >= 0 ? '+' : ''}${totalPct}%</div></div>
+        <div class="card"><div class="label">Trades</div><div class="value neutral">${rows.length}</div></div>
+        <div class="card"><div class="label">Win / Loss</div><div class="value neutral"><span class="pos">${wins}W</span> / <span class="neg">${losses}L</span></div></div>
+      `;
+
+      // Rows
+      const tbody = document.getElementById('tbody');
+      rows.forEach(r => {
+        const pnlVal = parseFloat(col(r, 'P&L $')) || null;
+        const pnlPct = parseFloat(col(r, 'P&L %')) || null;
+        const status = col(r, 'Status').toLowerCase();
+        const action = col(r, 'Action').toLowerCase();
+
+        const pnlDollar = pnlVal !== null
+          ? `<span class="${pnlVal >= 0 ? 'pos' : 'neg'}">${pnlVal >= 0 ? '+' : ''}$${pnlVal.toFixed(2)}</span>`
+          : '<span class="muted">—</span>';
+        const pnlPercent = pnlPct !== null
+          ? `<span class="${pnlPct >= 0 ? 'pos' : 'neg'}">${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%</span>`
+          : '<span class="muted">—</span>';
+
+        tbody.innerHTML += `
+          <tr>
+            <td>${col(r,'Date')}</td>
+            <td><strong>${col(r,'Symbol')}</strong></td>
+            <td><span class="badge ${action}">${col(r,'Action')}</span></td>
+            <td>${col(r,'Shares')}</td>
+            <td>$${col(r,'Entry Price')}</td>
+            <td>${col(r,'Exit Price') ? '$'+col(r,'Exit Price') : '<span class="muted">—</span>'}</td>
+            <td>$${col(r,'Dollar In')}</td>
+            <td>${col(r,'Current Value') ? '$'+col(r,'Current Value') : '<span class="muted">live</span>'}</td>
+            <td>${pnlDollar}</td>
+            <td>${pnlPercent}</td>
+            <td class="thesis-cell">${col(r,'Catalyst')}</td>
+            <td style="white-space:nowrap">${col(r,'Catalyst Date')}</td>
+            <td><span class="conviction">${col(r,'Conviction')}</span></td>
+            <td class="why-cell">${col(r,'Why This Pick')}</td>
+            <td class="why-cell">${col(r,'Why Not Alternative')}</td>
+            <td><span class="badge ${status}">${col(r,'Status')}</span></td>
+            <td class="why-cell">${col(r,'Notes')}</td>
+          </tr>`;
+      });
+
+      document.getElementById('last-updated').textContent = 'Last updated: ' + new Date().toLocaleString();
+    }
+    load();
+  </script>
+</body>
+</html>

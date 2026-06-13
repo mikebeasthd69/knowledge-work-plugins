@@ -116,3 +116,29 @@ jobs:
             After completing the output, place the trade:
             call review_equity_order, then place_equity_order for the winning symbol.
             Today's date context: use web search to confirm current market state.
+
+            ═══════════════════════════════════════
+            AFTER PLACING THE TRADE — LOG IT
+            ═══════════════════════════════════════
+
+            Append one row to trades/trade-log.csv with these exact columns:
+            Date,Symbol,Action,Shares,Entry Price,Exit Price,Dollar In,Current Value,P&L $,P&L %,Catalyst,Catalyst Date,Conviction,Why This Pick,Why Not Alternative,Status,Notes
+
+            Rules:
+            - Exit Price, Current Value, P&L $, P&L % are blank for new BUY entries (filled on close)
+            - For any position being SOLD today, fill Exit Price and calculate P&L $ and P&L %
+            - Status: OPEN for new buys, CLOSED for sells
+            - Conviction: use the score from your scorecard (e.g. "8/10")
+            - Why This Pick: one sentence max
+            - Why Not Alternative: one sentence explaining why the runner-up lost
+            - Wrap fields containing commas in double quotes
+
+            Also check all existing OPEN rows in trades/trade-log.csv:
+            - Call get_equity_quotes for each open symbol
+            - Update Current Value = shares * current price
+            - Update P&L $ = Current Value - Dollar In
+            - Update P&L % = (P&L $ / Dollar In) * 100
+            - If a position's thesis is broken or target hit, change Status to CLOSE_PENDING and add note
+
+            Commit the updated trades/trade-log.csv to the repository with message:
+            "Trade log: [DATE] — [SYMBOL] [ACTION] @ $[PRICE]"
