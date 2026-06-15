@@ -2,7 +2,7 @@ name: Daily Trade Analysis – 10 AM ET
 
 on:
   schedule:
-    - cron: '0 14 * * 1-5'  # 10:00 AM ET (Mon–Fri)
+    - cron: '0 13 * * 1-5'  # 9:00 AM ET (Mon–Fri)
   workflow_dispatch:
 
 jobs:
